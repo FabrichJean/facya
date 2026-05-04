@@ -16,18 +16,32 @@ def trouver_createurs_sur_image(image_couverture_path, dossier_references):
         for nom_fichier in os.listdir(dossier_references):
             chemin_ref = os.path.join(dossier_references, nom_fichier)
             
-            # Charger la photo du créateur connu
-            image_ref = face_recognition.load_image_file(chemin_ref)
-            # On récupère le premier visage trouvé dans l'image de référence
-            encodage_ref = face_recognition.face_encodings(image_ref)[0]
-
-            # 3. Comparaison (tolerance 0.6 est le standard, plus bas c'est plus strict)
-            match = face_recognition.compare_faces([encodage_ref], encodage_inconnu, tolerance=0.5)
+            # Vérifier que c'est un fichier image
+            if not os.path.isfile(chemin_ref):
+                continue
             
-            if match[0]:
-                nom_createur = os.path.splitext(nom_fichier)[0]
-                createurs_detectes.append(nom_createur)
-                break # On a trouvé qui c'est, on passe au visage suivant sur la couv
+            try:
+                # Charger la photo du créateur connu
+                image_ref = face_recognition.load_image_file(chemin_ref)
+                # On récupère le premier visage trouvé dans l'image de référence
+                encodages_ref = face_recognition.face_encodings(image_ref)
+                
+                if not encodages_ref:
+                    print(f"⚠️  Aucun visage détecté dans {nom_fichier}")
+                    continue
+                
+                encodage_ref = encodages_ref[0]
+
+                # 3. Comparaison (tolerance 0.6 est le standard, plus bas c'est plus strict)
+                match = face_recognition.compare_faces([encodage_ref], encodage_inconnu, tolerance=0.5)
+                
+                if match[0]:
+                    nom_createur = os.path.splitext(nom_fichier)[0]
+                    createurs_detectes.append(nom_createur)
+                    break # On a trouvé qui c'est, on passe au visage suivant sur la couv
+            except Exception as e:
+                print(f"❌ Erreur avec {nom_fichier}: {str(e)}")
+                continue
 
     return list(set(createurs_detectes))
 
