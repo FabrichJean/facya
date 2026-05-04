@@ -7,6 +7,7 @@ import numpy as np
 from werkzeug.utils import secure_filename
 import json
 import threading
+import time
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'facya-secret-key-2026'
@@ -47,6 +48,7 @@ def comparer_couleur_peau(couleur1, couleur2):
 
 def trouver_createurs_sur_image(image_couverture_path, dossier_references="createurs", socket_id=None):
     """Trouve les créateurs correspondant aux visages de l'image"""
+    temps_debut = time.time()
     try:
         # Charger l'image de couverture et trouver les visages
         image_couv = face_recognition.load_image_file(image_couverture_path)
@@ -57,7 +59,8 @@ def trouver_createurs_sur_image(image_couverture_path, dossier_references="creat
             return {
                 'success': False,
                 'message': 'Aucun visage détecté dans l\'image',
-                'resultats': []
+                'resultats': [],
+                'temps': 0
             }
         
         scores_createurs = {}
@@ -158,10 +161,15 @@ def trouver_createurs_sur_image(image_couverture_path, dossier_references="creat
         
         resultats_tries = sorted(resultats_filtres.items(), key=lambda x: x[1]['score'], reverse=True)
         
+        # Calculer le temps écoulé
+        temps_fin = time.time()
+        temps_ecoule = temps_fin - temps_debut
+        
         return {
             'success': True,
             'message': f'{len(resultats_tries)} créateur(s) trouvé(s)',
             'visages_detectes': len(encodings_couv),
+            'temps': round(temps_ecoule, 2),
             'resultats': [
                 {
                     'nom': createur,
@@ -177,9 +185,12 @@ def trouver_createurs_sur_image(image_couverture_path, dossier_references="creat
         }
         
     except Exception as e:
+        temps_fin = time.time()
+        temps_ecoule = temps_fin - temps_debut
         return {
             'success': False,
             'message': f'Erreur: {str(e)}',
+            'temps': round(temps_ecoule, 2),
             'resultats': []
         }
 

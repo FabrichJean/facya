@@ -219,7 +219,6 @@
             border-radius: 10px;
             margin-bottom: 12px;
             border-left: 5px solid #667eea;
-            animation: slideIn 0.5s ease;
         }
 
         @keyframes slideIn {
@@ -344,6 +343,84 @@
             color: #999;
         }
 
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            position: relative;
+            max-width: 90%;
+            max-height: 90vh;
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+            animation: modalIn 0.3s ease;
+        }
+
+        @keyframes modalIn {
+            from {
+                transform: scale(0.9);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .modal-image {
+            width: 100%;
+            height: auto;
+            max-height: 85vh;
+            object-fit: contain;
+            display: block;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.6);
+            border: none;
+            color: white;
+            font-size: 28px;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .modal-close:hover {
+            background: rgba(0, 0, 0, 0.9);
+            transform: scale(1.1);
+        }
+
+        @media (max-width: 768px) {
+            .modal-content {
+                max-width: 95%;
+                max-height: 95vh;
+            }
+        }
+
         @media (max-width: 1024px) {
             .main-container {
                 grid-template-columns: 1fr;
@@ -416,6 +493,14 @@
         </div>
     </div>
 
+    <!-- Modal Preview -->
+    <div class="modal" id="imageModal">
+        <div class="modal-content">
+            <button class="modal-close" id="modalClose">&times;</button>
+            <img id="modalImage" class="modal-image" alt="Preview">
+        </div>
+    </div>
+
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script>
         const uploadArea = document.getElementById('uploadArea');
@@ -432,6 +517,11 @@
         const progressPercentage = document.getElementById('progressPercentage');
         const noResults = document.getElementById('noResults');
         const submitBtn = document.getElementById('submitBtn');
+        
+        // Modal elements
+        const imageModal = document.getElementById('imageModal');
+        const modalImage = document.getElementById('modalImage');
+        const modalClose = document.getElementById('modalClose');
 
         // Connexion WebSocket
         const socket = io();
@@ -456,6 +546,34 @@
         });
 
         fileInput.addEventListener('change', updateFileName);
+
+        // Modal functions
+        function openImageModal(imageSrc, creatorName) {
+            modalImage.src = imageSrc;
+            modalImage.alt = creatorName;
+            imageModal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeImageModal() {
+            imageModal.classList.remove('active');
+            document.body.style.overflow = 'auto';
+        }
+
+        modalClose.addEventListener('click', closeImageModal);
+
+        imageModal.addEventListener('click', (e) => {
+            if (e.target === imageModal) {
+                closeImageModal();
+            }
+        });
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && imageModal.classList.contains('active')) {
+                closeImageModal();
+            }
+        });
 
         function updateFileName() {
             if (fileInput.files.length > 0) {
@@ -538,12 +656,14 @@
             progressPercentage.textContent = '100%';
 
             if (data.success) {
-                showMessage(`✅ ${data.message} (${data.visages_detectes} visage(s) détecté(s))`, 'success');
+                const tempsMsg = data.temps ? ` ⏱️ ${formatTemps(data.temps)}` : '';
+                showMessage(`✅ ${data.message} (${data.visages_detectes} visage(s) détecté(s))${tempsMsg}`, 'success');
                 results.style.display = 'block';
                 noResults.style.display = 'none';
                 displayResults(data.resultats);
             } else {
-                showMessage(`❌ ${data.message}`, 'error');
+                const tempsMsg = data.temps ? ` ⏱️ ${formatTemps(data.temps)}` : '';
+                showMessage(`❌ ${data.message}${tempsMsg}`, 'error');
                 results.style.display = 'none';
                 noResults.style.display = 'block';
             }
@@ -559,6 +679,15 @@
 
         function showMessage(message, type) {
             messageContainer.innerHTML = `<div class="message ${type}">${message}</div>`;
+        }
+
+        function formatTemps(secondes) {
+            const mins = Math.floor(secondes / 60);
+            const secs = (secondes % 60).toFixed(2);
+            if (mins > 0) {
+                return `${mins}m${secs}s`;
+            }
+            return `${secs}s`;
         }
 
         function updateResultsList(resultats) {
@@ -614,6 +743,7 @@
 
         function createResultElement(result) {
             const className = result.score >= 70 ? 'high' : result.score >= 50 ? 'medium' : 'low';
+            const imageHtml = result.image ? `<img src="${result.image}" alt="${result.nom}" class="creator-image" style="cursor: pointer;" onclick="openImageModal('${result.image.replace(/'/g, "\\'")}', '${result.nom.replace(/'/g, "\\'")}')" title="Cliquez pour agrandir">` : '';
             return `
                 <div class="result-item ${className}" data-creator="${result.nom}">
                     <div class="result-header">
@@ -622,7 +752,7 @@
                             <div class="creator-name">👤 ${result.nom}</div>
                         </div>
                         <div class="result-score-badge">${result.score.toFixed(1)}%</div>
-                        ${result.image ? `<img src="${result.image}" alt="${result.nom}" class="creator-image">` : ''}
+                        ${imageHtml}
                     </div>
                     <div class="score-bar">
                         <div class="score-fill" style="width: ${result.score}%"></div>
