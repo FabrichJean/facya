@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facya - Reconnaissance Faciale</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+        }
+
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            font-size: 36px;
+            grid-column: 1 / -1;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 20px;
+            font-size: 16px;
+            grid-column: 1 / -1;
+        }
+
+        .upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f8f9ff;
+            margin-bottom: 20px;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #e9ecff;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .upload-area p {
+            color: #666;
+            margin: 10px 0;
+        }
+
+        .upload-area .small {
+            color: #999;
+            font-size: 12px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            font-weight: 600;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .image-preview-container {
+            margin-top: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            max-height: 400px;
+            display: none;
+        }
+
+        .image-preview {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 10px;
+        }
+
+        .file-name {
+            color: #667eea;
+            font-weight: 600;
+            margin: 15px 0 0 0;
+            font-size: 14px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .progress-bar {
+            background: #e5e7eb;
+            height: 14px;
+            border-radius: 7px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .progress-text {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .message.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #6ee7b7;
+        }
+
+        .message.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+
+        .message.info {
+            background: #dbeafe;
+            color: #0c2d6b;
+            border: 1px solid #93c5fd;
+        }
+
+        .results {
+            display: none;
+        }
+
+        .result-item {
+            background: #f8f9ff;
+            padding: 16px;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            border-left: 5px solid #667eea;
+            animation: slideIn 0.5s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .result-item.high {
+            border-left-color: #10b981;
+            background: #f0fdf4;
+        }
+
+        .result-item.medium {
+            border-left-color: #f59e0b;
+            background: #fffbf0;
+        }
+
+        .result-item.low {
+            border-left-color: #ef4444;
+            background: #fef2f2;
+        }
+
+        .result-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .result-rank {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            font-weight: bold;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .creator-info {
+            flex: 1;
+        }
+
+        .creator-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .creator-image {
+            width: 80px;
+            height: 80px;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 2px solid #667eea;
+            flex-shrink: 0;
+        }
+
+        .result-score-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 18px;
+            flex-shrink: 0;
+            min-width: 70px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .score-bar {
+            background: #e5e7eb;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+
+        .score-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.5s ease;
+        }
+
+        .score-details {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            font-size: 11px;
+        }
+
+        .score-detail {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .score-label {
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 2px;
+        }
+
+        .score-value {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 30px;
+            color: #999;
+        }
+
+        @media (max-width: 1024px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .card {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 28px;
+            }
+
+            .score-details {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>🎬 Facya</h1>
+    <p class="subtitle">Reconnaissance faciale pour créateurs</p>
+
+    <div class="main-container">
+        <!-- Upload Section -->
+        <div class="card">
+            <h2>📤 Uploader une image</h2>
+
+            <form id="uploadForm" enctype="multipart/form-data">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">📷</div>
+                    <p><strong>Cliquez ou glissez votre image ici</strong></p>
+                    <p class="small">Formats acceptés: JPG, PNG, GIF, BMP (max 16MB)</p>
+                    <input type="file" id="fileInput" accept="image/*" required>
+                </div>
+                <div class="file-name" id="fileName"></div>
+                
+                <div class="image-preview-container" id="imagePreviewContainer">
+                    <img id="imagePreview" class="image-preview" alt="Aperçu">
+                </div>
+
+                <button type="submit" class="btn" id="submitBtn">Analyser l'image</button>
+            </form>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p class="progress-text">Analyse en cours...</p>
+                <div class="progress-bar">
+                    <div class="progress-bar-fill" id="progressBarFill"></div>
+                </div>
+                <p id="progressPercentage">0%</p>
+            </div>
+
+            <div id="messageContainer"></div>
+        </div>
+
+        <!-- Results Section -->
+        <div class="card">
+            <h2>📊 Résultats</h2>
+            
+            <div class="results" id="results">
+                <div id="resultsList"></div>
+            </div>
+
+            <div class="no-results" id="noResults" style="display: none;">
+                Uploader une image pour voir les résultats
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadForm = document.getElementById('uploadForm');
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        const resultsList = document.getElementById('resultsList');
+        const messageContainer = document.getElementById('messageContainer');
+        const fileName = document.getElementById('fileName');
+        const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+        const imagePreview = document.getElementById('imagePreview');
+        const progressBarFill = document.getElementById('progressBarFill');
+        const progressPercentage = document.getElementById('progressPercentage');
+        const noResults = document.getElementById('noResults');
+        const submitBtn = document.getElementById('submitBtn');
+
+        // Connexion WebSocket
+        const socket = io();
+
+        // Drag and drop
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            fileInput.files = e.dataTransfer.files;
+            updateFileName();
+        });
+
+        fileInput.addEventListener('change', updateFileName);
+
+        function updateFileName() {
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                fileName.textContent = `Fichier: ${file.name}`;
+
+                // Afficher l'aperçu
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imagePreview.src = e.target.result;
+                    imagePreviewContainer.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Upload form
+        uploadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (fileInput.files.length === 0) {
+                showMessage('Veuillez sélectionner une image', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            submitBtn.disabled = true;
+            loading.style.display = 'block';
+            results.style.display = 'none';
+            noResults.style.display = 'none';
+            resultsList.innerHTML = '';
+            messageContainer.innerHTML = '';
+            progressBarFill.style.width = '0%';
+            progressPercentage.textContent = '0%';
+
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage(`✅ Analyse en cours...`, 'info');
+                    // Déclencher l'analyse via WebSocket
+                    socket.emit('analyze', { filepath: data.filepath });
+                } else {
+                    showMessage(`❌ ${data.message}`, 'error');
+                    loading.style.display = 'none';
+                    submitBtn.disabled = false;
+                }
+            } catch (error) {
+                showMessage(`❌ Erreur: ${error.message}`, 'error');
+                loading.style.display = 'none';
+                submitBtn.disabled = false;
+            }
+        });
+
+        // WebSocket events
+        socket.on('progress_update', (data) => {
+            // Mettre à jour la barre de progression
+            progressBarFill.style.width = data.progress + '%';
+            progressPercentage.textContent = data.progress.toFixed(1) + '%';
+
+            // Afficher les résultats progressivement
+            if (data.resultats && data.resultats.length > 0) {
+                results.style.display = 'block';
+                noResults.style.display = 'none';
+                updateResultsList(data.resultats);
+            }
+        });
+
+        socket.on('complete', (data) => {
+            loading.style.display = 'none';
+            submitBtn.disabled = false;
+            progressBarFill.style.width = '100%';
+            progressPercentage.textContent = '100%';
+
+            if (data.success) {
+                showMessage(`✅ ${data.message} (${data.visages_detectes} visage(s) détecté(s))`, 'success');
+                results.style.display = 'block';
+                noResults.style.display = 'none';
+                displayResults(data.resultats);
+            } else {
+                showMessage(`❌ ${data.message}`, 'error');
+                results.style.display = 'none';
+                noResults.style.display = 'block';
+            }
+        });
+
+        socket.on('error', (data) => {
+            loading.style.display = 'none';
+            submitBtn.disabled = false;
+            showMessage(`❌ Erreur: ${data.message}`, 'error');
+            results.style.display = 'none';
+            noResults.style.display = 'block';
+        });
+
+        function showMessage(message, type) {
+            messageContainer.innerHTML = `<div class="message ${type}">${message}</div>`;
+        }
+
+        function updateResultsList(resultats) {
+            // Créer une map pour accéder rapidement aux résultats existants
+            const existingResults = {};
+            document.querySelectorAll('[data-creator]').forEach(el => {
+                existingResults[el.dataset.creator] = el;
+            });
+
+            // Mettre à jour ou ajouter les résultats
+            resultats.forEach((result) => {
+                const resultHTML = createResultElement(result);
+                
+                if (existingResults[result.nom]) {
+                    // Mettre à jour l'élément existant
+                    existingResults[result.nom].outerHTML = resultHTML;
+                } else {
+                    // Ajouter le nouveau résultat
+                    resultsList.innerHTML += resultHTML;
+                }
+            });
+
+            // Trier les résultats par score (du plus haut au plus bas)
+            const items = Array.from(resultsList.querySelectorAll('.result-item'));
+            items.sort((a, b) => {
+                const scoreA = parseFloat(a.querySelector('.score-value').textContent);
+                const scoreB = parseFloat(b.querySelector('.score-value').textContent);
+                return scoreB - scoreA; // Ordre décroissant (plus haut en haut)
+            });
+
+            // Réinsérer les éléments triés
+            resultsList.innerHTML = '';
+            items.forEach((item, index) => {
+                // Mettre à jour le rang afin qu'il soit cohérent avec la position
+                const rankElement = item.querySelector('.result-rank');
+                rankElement.textContent = `#${index + 1}`;
+                resultsList.appendChild(item);
+            });
+        }
+
+        function displayResults(resultats) {
+            if (resultats.length === 0) {
+                results.style.display = 'none';
+                noResults.style.display = 'block';
+                noResults.textContent = 'Aucun créateur ne correspond';
+                return;
+            }
+
+            results.style.display = 'block';
+            noResults.style.display = 'none';
+            resultsList.innerHTML = resultats.map(result => createResultElement(result)).join('');
+        }
+
+        function createResultElement(result) {
+            const className = result.score >= 70 ? 'high' : result.score >= 50 ? 'medium' : 'low';
+            return `
+                <div class="result-item ${className}" data-creator="${result.nom}">
+                    <div class="result-header">
+                        <div class="result-rank">#${result.rank}</div>
+                        <div class="creator-info">
+                            <div class="creator-name">👤 ${result.nom}</div>
+                        </div>
+                        <div class="result-score-badge">${result.score.toFixed(1)}%</div>
+                        ${result.image ? `<img src="${result.image}" alt="${result.nom}" class="creator-image">` : ''}
+                    </div>
+                    <div class="score-bar">
+                        <div class="score-fill" style="width: ${result.score}%"></div>
+                    </div>
+                    <div class="score-details">
+                        <div class="score-detail">
+                            <span class="score-label">Global</span>
+                            <span class="score-value">${result.score.toFixed(1)}%</span>
+                        </div>
+                        <div class="score-detail">
+                            <span class="score-label">Facial</span>
+                            <span class="score-value">${result.facial.toFixed(1)}%</span>
+                        </div>
+                        <div class="score-detail">
+                            <span class="score-label">Couleur</span>
+                            <span class="score-value">${result.couleur.toFixed(1)}%</span>
+                        </div>
+                        <div class="score-detail">
+                            <span class="score-label">Distance</span>
+                            <span class="score-value">${result.distance}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
