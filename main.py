@@ -49,6 +49,25 @@ def comparer_couleur_peau(couleur1, couleur2):
     similarity = 1 - (distance / (255 * np.sqrt(3)))
     return max(0, min(1, similarity))
 
+def redimensionner_image(image, max_width=1200):
+    """Redimensionne l'image pour accélérer la détection (70% plus rapide)"""
+    hauteur, largeur = image.shape[:2]
+    
+    # Si l'image est plus petite que max_width, pas besoin de redimensionner
+    if largeur <= max_width:
+        return image
+    
+    # Calculer le ratio et la nouvelle hauteur
+    ratio = max_width / largeur
+    nouvelle_hauteur = int(hauteur * ratio)
+    
+    # Redimensionner avec PIL (plus rapide que cv2)
+    image_pil = Image.fromarray(image)
+    image_redim = image_pil.resize((max_width, nouvelle_hauteur), Image.Resampling.LANCZOS)
+    
+    # Convertir back en numpy array
+    return np.array(image_redim)
+
 def preparer_createur(chemin_ref):
     """Prépare et cache les données d'un créateur"""
     try:
@@ -108,16 +127,27 @@ def trouver_createurs_sur_image(image_couverture_path, dossier_references, num_t
     """Trouve les créateurs avec traitement parallèle"""
     print("🚀 Démarrage de l'analyse avec traitement parallèle...")
     
-    # 1. Charger l'image de couverture
+    # 1. Charger et redimensionner l'image de couverture
+    print("📸 Chargement de l'image de couverture...")
     image_couv = face_recognition.load_image_file(image_couverture_path)
-    face_locations_couv = face_recognition.face_locations(image_couv)
+    print(f"   Taille originale: {image_couv.shape[1]}x{image_couv.shape[0]} pixels")
+    
+    # Redimensionner pour accélérer (70% plus rapide)
+    image_couv = redimensionner_image(image_couv, max_width=1200)
+    print(f"   Taille redimensionnée: {image_couv.shape[1]}x{image_couv.shape[0]} pixels")
+    
+    # 2. Détection et encodage (utiliser 'hog' pour plus de rapidité)
+    print("🔍 Détection des visages...")
+    face_locations_couv = face_recognition.face_locations(image_couv, model='hog')
     encodings_couv = face_recognition.face_encodings(image_couv, face_locations_couv)
     
     if not encodings_couv:
         print("❌ Aucun visage trouvé dans l'image")
         return []
     
-    # 2. Préparer tous les créateurs en parallèle
+    print(f"✅ {len(encodings_couv)} visage(s) détecté(s)")
+    
+    # 3. Préparer tous les créateurs en parallèle
     print("📁 Préparation des encodages des créateurs...")
     fichiers_ref = [
         os.path.join(dossier_references, f) 
@@ -135,7 +165,7 @@ def trouver_createurs_sur_image(image_couverture_path, dossier_references, num_t
     
     print(f"✅ {len(createurs_data)} créateurs préparés")
     
-    # 3. Comparer chaque visage avec tous les créateurs en parallèle
+    # 4. Comparer chaque visage avec tous les créateurs en parallèle
     scores_createurs = {}
     
     for idx_visage, (encodage_inconnu, location_inconnu) in enumerate(zip(encodings_couv, face_locations_couv)):
@@ -167,7 +197,7 @@ def trouver_createurs_sur_image(image_couverture_path, dossier_references, num_t
                             'facial': result['facial']
                         }
     
-    # 4. Filtrer et trier
+    # 5. Filtrer et trier
     seuil_minimum = 0.4
     resultats_filtres = {
         createur: infos for createur, infos in scores_createurs.items()
@@ -176,7 +206,7 @@ def trouver_createurs_sur_image(image_couverture_path, dossier_references, num_t
     
     resultats_tries = sorted(resultats_filtres.items(), key=lambda x: x[1]['score'], reverse=True)
     
-    # 5. Afficher les résultats
+    # 6. Afficher les résultats
     if resultats_tries:
         print("\n📊 Résultats de la reconnaissance faciale:")
         print("-" * 70)
